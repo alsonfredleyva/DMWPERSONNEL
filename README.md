@@ -93,7 +93,7 @@ Employees are automatically organized by their division:
 Within each division, employees are further categorized by:
 - **REGULAR**: Regular employment
 - **JOB ORDER**: Job order employees
-- **GIP**: General Information Personnel
+- **GIP**: Government Internship Personnel
 
 ### Calendar Features
 - Shows the full month view
