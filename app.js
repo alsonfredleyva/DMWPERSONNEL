@@ -248,8 +248,8 @@ Welfare Reintegration Services Division (RO X),REGULAR,,,,,,,,,,
                     if (emailIndex + 4 < parts.length) address = (parts[emailIndex + 4] || '').trim();
 
                     // Validate required fields
-                    if (!firstName || !lastName || !birthdateString) {
-                        console.log('Skipping employee - missing fields:', firstName, lastName, birthdateString);
+                    if (!firstName || !lastName) {
+                        console.log('Skipping employee - missing name fields:', firstName, lastName, birthdateString);
                         continue;
                     }
 
@@ -292,61 +292,67 @@ Welfare Reintegration Services Division (RO X),REGULAR,,,,,,,,,,
                         }
                     }
                 }
-            } else if (currentType === 'GIP' && line.length > 0 && !line.includes('First Name')) {
-                // Handle GIP employees without emails (format: , firstName, lastName, middleName, ...)
+            } else if (currentType && line.length > 0 && !line.includes('First Name')) {
                 const parts = this.parseCSVLine(line);
                 
-                // Filter out empty leading parts
-                const filteredParts = parts.slice(1); // Skip leading empty
-                
-                if (filteredParts.length >= 2) {
-                    const firstName = (filteredParts[0] || '').trim();
-                    const lastName = (filteredParts[1] || '').trim();
-                    const middleName = (filteredParts[2] || '').trim();
-                    
-                    // Validate required fields - only need firstName and lastName for GIP
-                    if (firstName && lastName) {
-                        // GIP employees often don't have complete data
-                        const birthdateString = (filteredParts[8] || '').trim();
-                        
-                        const employee = {
-                            firstName: firstName,
-                            lastName: lastName,
-                            middleName: middleName,
-                            mobile: (filteredParts[3] || '').trim(),
-                            email: '',
-                            position: (filteredParts[5] || '').trim(),
-                            nickname: (filteredParts[7] || '').trim(),
-                            birthdateString: birthdateString,
-                            address: (filteredParts[9] || '').trim(),
-                            division: currentDivision,
-                            employmentType: 'GIP'
-                        };
-                        
-                        // If has birthdate, parse it. Otherwise use placeholder
-                        if (birthdateString) {
-                            const birthDate = this.parseBirthdate(birthdateString);
-                            if (birthDate) {
-                                employee.birthDate = birthDate;
-                                employee.displayBirthday = this.formatBirthday(birthDate);
-                            } else {
-                                // Invalid date format
-                                employee.displayBirthday = 'No Date';
-                            }
+                // Skip section markers and invalid rows
+                if (parts.length === 0) continue;
+                const firstCell = (parts[0] || '').trim().toUpperCase();
+                if (firstCell === 'REGULAR' || firstCell === 'JOB ORDER' || firstCell === 'GIP' || firstCell === 'DIVISION') {
+                    continue;
+                }
+
+                // Normalize leading comma rows
+                let filteredParts = parts;
+                if (filteredParts[0] === '') {
+                    filteredParts = filteredParts.slice(1);
+                }
+
+                const firstName = (filteredParts[0] || '').trim();
+                const lastName = (filteredParts[1] || '').trim();
+                const middleName = (filteredParts[2] || '').trim();
+                const mobile = (filteredParts[3] || '').trim();
+                const email = (filteredParts[4] || '').trim();
+                const position = (filteredParts[5] || '').trim();
+                const nickname = (filteredParts[6] || '').trim();
+                const birthdateString = (filteredParts[7] || '').trim();
+                const address = (filteredParts[8] || '').trim();
+
+                if (firstName && lastName) {
+                    // Use current employment type when available
+                    const employee = {
+                        firstName: firstName,
+                        lastName: lastName,
+                        middleName: middleName,
+                        mobile: mobile,
+                        email: email,
+                        position: position,
+                        nickname: nickname,
+                        birthdateString: birthdateString,
+                        address: address,
+                        division: currentDivision,
+                        employmentType: currentType || 'UNSPECIFIED'
+                    };
+
+                    if (birthdateString) {
+                        const birthDate = this.parseBirthdate(birthdateString);
+                        if (birthDate) {
+                            employee.birthDate = birthDate;
+                            employee.displayBirthday = this.formatBirthday(birthDate);
                         } else {
-                            // No birthdate provided
                             employee.displayBirthday = 'No Date';
                         }
-                        
-                        this.employees.push(employee);
-                        console.log('Added GIP employee:', employee.firstName, employee.lastName, 'Birthday:', employee.displayBirthday);
+                    } else {
+                        employee.displayBirthday = 'No Date';
+                    }
 
-                        // Add to division
-                        if (this.divisions.has(currentDivision)) {
-                            this.divisions.get(currentDivision).push(employee);
-                        } else {
-                            this.divisions.set(currentDivision, [employee]);
-                        }
+                    this.employees.push(employee);
+                    console.log('Added employee without email:', employee.firstName, employee.lastName, 'Type:', employee.employmentType);
+
+                    if (this.divisions.has(currentDivision)) {
+                        this.divisions.get(currentDivision).push(employee);
+                    } else {
+                        this.divisions.set(currentDivision, [employee]);
                     }
                 }
             }
@@ -432,7 +438,7 @@ Welfare Reintegration Services Division (RO X),REGULAR,,,,,,,,,,
     formatBirthday(date) {
         const months = ['January', 'February', 'March', 'April', 'May', 'June',
                        'July', 'August', 'September', 'October', 'November', 'December'];
-        return `${months[date.getMonth()]} ${date.getDate()}`;
+        return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
     }
 
     daysToBirthday(birthDate) {
@@ -503,7 +509,7 @@ Welfare Reintegration Services Division (RO X),REGULAR,,,,,,,,,,
             <div class="employee-modal-header">
                 <div class="employee-modal-avatar">${initials}</div>
                 <div>
-                    <h3>${employee.firstName} ${employee.lastName}</h3>
+                    <h3 id="employee-modal-title">${employee.firstName} ${employee.lastName}</h3>
                     <p>${employee.position || 'N/A'}</p>
                 </div>
             </div>
@@ -673,7 +679,7 @@ Welfare Reintegration Services Division (RO X),REGULAR,,,,,,,,,,
                 <tr>
                     <td><span class="days-until-badge">${dayLabel}</span></td>
                     <td><strong>${emp.firstName} ${emp.lastName}</strong></td>
-                    <td>${emp.displayBirthday || 'N/A'}</td>
+                    <td>${emp.displayBirthday && emp.displayBirthday !== 'No Date' ? emp.displayBirthday : '<span class="no-date-badge">No birthday data</span>'}</td>
                     <td>${emp.division}</td>
                     <td>${emp.position || 'N/A'}</td>
                 </tr>
