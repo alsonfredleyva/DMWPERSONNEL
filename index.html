@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DMW RO-X Personnel Portal</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <img src="LOGO/output-onlinepngtools.png" alt="DMW Logo" class="header-logo">
+                    <div class="header-text">
+                        <h1>DMW RO-X Personnel Portal</h1>
+                        <p>Employee Directory & Birthday Calendar</p>
+                    </div>
+                </div>
+                <nav class="main-nav">
+                    <button class="nav-btn active" data-page="dashboard">Dashboard</button>
+                    <button class="nav-btn" data-page="calendar">Calendar</button>
+                    <button class="nav-btn" data-page="divisions">Divisions</button>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Page -->
+            <section id="dashboard" class="page active">
+                <div class="dashboard-grid">
+                    <!-- Today's Birthdays -->
+                    <div class="card today-card">
+                        <div class="card-header">
+                            <h2>🎉 Today's Birthdays</h2>
+                            <span class="count-badge" id="today-count">0</span>
+                        </div>
+                        <div class="card-body" id="today-birthdays">
+                            <p class="empty-message">No birthdays today</p>
+                        </div>
+                    </div>
+
+                    <!-- This Week's Birthdays -->
+                    <div class="card week-card">
+                        <div class="card-header">
+                            <h2>📅 This Week's Birthdays</h2>
+                            <span class="count-badge" id="week-count">0</span>
+                        </div>
+                        <div class="card-body" id="week-birthdays">
+                            <p class="empty-message">No birthdays this week</p>
+                        </div>
+                    </div>
+
+                    <!-- This Month's Birthdays -->
+                    <div class="card month-card">
+                        <div class="card-header">
+                            <h2>📆 This Month's Birthdays</h2>
+                            <span class="count-badge" id="month-count">0</span>
+                        </div>
+                        <div class="card-body" id="month-birthdays">
+                            <p class="empty-message">No birthdays this month</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upcoming Birthdays (30 days) -->
+                <div class="card full-width-card">
+                    <div class="card-header">
+                        <h2>🚀 Upcoming Birthdays (Next 30 Days)</h2>
+                        <span class="count-badge" id="upcoming-count">0</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="search-box">
+                            <input type="text" id="search-input" placeholder="Search by name or division...">
+                        </div>
+                        <table class="birthdays-table" id="upcoming-table">
+                            <thead>
+                                <tr>
+                                    <th>Days Until</th>
+                                    <th>Employee</th>
+                                    <th>Birthday</th>
+                                    <th>Division</th>
+                                    <th>Position</th>
+                                </tr>
+                            </thead>
+                            <tbody id="upcoming-body">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Calendar Page -->
+            <section id="calendar" class="page">
+                <div class="card full-width-card">
+                    <div class="card-header">
+                        <h2>📅 Birthday Calendar</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="calendar-container">
+                            <div>
+                                <div style="display: flex; gap: 1rem; margin-bottom: 1rem; justify-content: center;">
+                                    <button class="nav-month-btn" id="prev-month">←</button>
+                                    <h3 id="calendar-title" style="margin: 0; min-width: 200px; text-align: center;">Calendar</h3>
+                                    <button class="nav-month-btn" id="next-month">→</button>
+                                </div>
+                                <div id="calendar-grid" class="calendar-grid"></div>
+                            </div>
+                            <div id="calendar-details" class="calendar-details">
+                                <h3 id="selected-date-title">Select a date</h3>
+                                <div id="selected-date-birthdays" class="selected-date-list">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Divisions Page -->
+            <section id="divisions" class="page">
+                <div class="divisions-container">
+                    <div class="division-filters">
+                        <h3>Filter by Division:</h3>
+                        <div class="filter-buttons" id="division-filters">
+                        </div>
+                    </div>
+
+                    <div id="divisions-content">
+                        <!-- Division sections will be populated here -->
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2024 DMW RO-X Personnel Portal | Employee Information System</p>
+        </footer>
+    </div>
+
+    <div id="employee-modal" class="employee-modal hidden" aria-hidden="true">
+        <div class="employee-modal-backdrop" data-close-modal="true"></div>
+        <div class="employee-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="employee-modal-title">
+            <button class="employee-modal-close" id="employee-modal-close" aria-label="Close details">×</button>
+            <div id="employee-modal-content"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
