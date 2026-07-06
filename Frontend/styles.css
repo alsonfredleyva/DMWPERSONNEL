@@ -587,9 +587,31 @@ body.modal-open {
     top: 100px;
 }
 
-.division-filters h3 {
+.division-filter-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
     margin-bottom: 1rem;
+}
+
+.division-filter-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.division-filters h3 {
+    margin: 0;
     color: var(--text-primary);
+    font-size: 1.1rem;
+}
+
+#add-employee-btn,
+#export-xls-btn {
+    white-space: nowrap;
 }
 
 .filter-buttons {
@@ -771,6 +793,56 @@ body.modal-open {
     border-radius: 1rem;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
     padding: 1.5rem;
+}
+
+.confirm-modal-dialog {
+    border: 1px solid rgba(124, 77, 32, 0.15);
+}
+
+.confirm-modal-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.confirm-modal-header h3 {
+    margin: 0;
+    font-size: 1.3rem;
+    color: var(--primary-color);
+}
+
+.confirm-modal-copy {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.confirm-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.85rem;
+    margin-top: 1rem;
+}
+
+.confirm-modal-actions .primary-btn {
+    background: var(--danger-color);
+    color: white;
+}
+
+.confirm-modal-actions .primary-btn:hover {
+    filter: brightness(1.05);
+}
+
+.confirm-modal-actions .secondary-btn {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.confirm-modal-actions .secondary-btn:hover {
+    background: var(--bg-secondary);
 }
 
 .employee-modal-close {

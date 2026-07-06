@@ -1,18 +1,21 @@
 // Birthday Tracker Application
 class BirthdayTracker {
     constructor() {
+        this.apiBaseUrl = '/api';
         this.employees = [];
         this.divisions = new Map();
         this.employeeDetails = new Map();
         this.currentMonth = new Date();
         this.selectedDate = null;
+        this.pendingDeleteId = null;
         this.init();
     }
 
     async init() {
         console.log('Initializing Birthday Tracker...');
-        await this.loadAndParseCSV();
-        console.log('CSV parsed, employees:', this.employees.length);
+        this.statusElement = document.getElementById('backend-status-banner');
+        await this.loadEmployees();
+        console.log('Employees loaded, employees:', this.employees.length);
         this.setupEventListeners();
         console.log('Event listeners setup');
         this.renderDashboard();
@@ -23,7 +26,91 @@ class BirthdayTracker {
         console.log('Divisions rendered');
     }
 
-    // Load and parse CSV file
+    async loadEmployees() {
+        try {
+            await this.fetchEmployeesFromApi();
+        } catch (error) {
+            console.warn('API fetch failed, falling back to CSV parser:', error);
+            const message = error && error.message ? error.message : String(error);
+            this.setBackendStatus(false, `Backend unavailable — using offline CSV mode (${message})`);
+            await this.loadAndParseCSV();
+            return;
+        }
+        this.setBackendStatus(true, 'Connected to backend API');
+    }
+
+    async fetchEmployeesFromApi() {
+        const response = await fetch(`${this.apiBaseUrl}/employees`);
+        if (!response.ok) {
+            throw new Error(`Failed to load employees from API: ${response.status} ${response.statusText}`);
+        }
+
+        const employees = await response.json();
+        this.processEmployeeData(employees);
+    }
+
+    setBackendStatus(isOnline, message) {
+        if (!this.statusElement) return;
+        this.statusElement.textContent = message;
+        this.statusElement.classList.remove('hidden', 'online', 'offline');
+        this.statusElement.classList.add(isOnline ? 'online' : 'offline');
+    }
+
+    clearBackendStatus() {
+        if (!this.statusElement) return;
+        this.statusElement.classList.add('hidden');
+        this.statusElement.textContent = '';
+    }
+
+    processEmployeeData(employees) {
+        this.employees = [];
+        this.divisions.clear();
+
+        employees.forEach(emp => {
+            const birthDate = emp.birthdate ? new Date(emp.birthdate) : null;
+            const displayBirthday = birthDate && !isNaN(birthDate.getTime())
+                ? this.formatBirthday(birthDate)
+                : 'No Date';
+
+            const employee = {
+                ...emp,
+                birthDate,
+                displayBirthday,
+                birthdateString: emp.birthdate || ''
+            };
+
+            this.employees.push(employee);
+            const division = employee.division && employee.division.trim() ? employee.division : 'Unassigned';
+            if (!this.divisions.has(division)) {
+                this.divisions.set(division, []);
+            }
+            this.divisions.get(division).push(employee);
+        });
+
+        this.sortEmployees();
+    }
+
+    sortEmployees() {
+        this.employees.sort((a, b) => {
+            if (a.division !== b.division) {
+                return a.division.localeCompare(b.division);
+            }
+            if (a.lastName !== b.lastName) {
+                return a.lastName.localeCompare(b.lastName);
+            }
+            return a.firstName.localeCompare(b.firstName);
+        });
+
+        for (const [division, employees] of this.divisions.entries()) {
+            employees.sort((a, b) => {
+                if (a.lastName !== b.lastName) {
+                    return a.lastName.localeCompare(b.lastName);
+                }
+                return a.firstName.localeCompare(b.firstName);
+            });
+        }
+    }
+
     async loadAndParseCSV() {
         try {
             // First try to fetch the file
@@ -551,6 +638,10 @@ Welfare Reintegration Services Division (RO X),REGULAR,,,,,,,,,,
                     <p>${employee.division || 'N/A'}</p>
                 </div>
             </div>
+            <div class="employee-modal-actions">
+                <button class="primary-btn edit-employee-btn" data-employee-id="${employee._id}">Edit</button>
+                <button class="secondary-btn delete-employee-btn" data-employee-id="${employee._id}">Delete</button>
+            </div>
         `;
 
         modal.classList.remove('hidden');
@@ -564,6 +655,218 @@ Welfare Reintegration Services Division (RO X),REGULAR,,,,,,,,,,
         modal.classList.add('hidden');
         modal.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('modal-open');
+    }
+
+    openConfirmModal(employeeId) {
+        this.pendingDeleteId = employeeId;
+        const confirmModal = document.getElementById('confirm-modal');
+        if (!confirmModal) return;
+        confirmModal.classList.remove('hidden');
+        confirmModal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+    }
+
+    closeConfirmModal() {
+        const confirmModal = document.getElementById('confirm-modal');
+        if (!confirmModal) return;
+        confirmModal.classList.add('hidden');
+        confirmModal.setAttribute('aria-hidden', 'true');
+        this.pendingDeleteId = null;
+        document.body.classList.remove('modal-open');
+    }
+
+    exportEmployeesToXLS() {
+        if (!this.employees || this.employees.length === 0) {
+            this.showNotification('No employees available to export.', 'warning');
+            return;
+        }
+
+        const headers = [
+            'ID',
+            'First Name',
+            'Last Name',
+            'Middle Name',
+            'Nickname',
+            'Email',
+            'Mobile',
+            'Position',
+            'Division',
+            'Employment Type',
+            'Birthdate',
+            'Address'
+        ];
+
+        const rows = this.employees.map(emp => [
+            emp._id || '',
+            emp.firstName || '',
+            emp.lastName || '',
+            emp.middleName || '',
+            emp.nickname || '',
+            emp.email || '',
+            emp.mobile || '',
+            emp.position || '',
+            emp.division || '',
+            emp.employmentType || '',
+            emp.birthdateString || '',
+            emp.address || ''
+        ]);
+
+        const tableRows = [headers, ...rows].map(row => `
+            <tr>${row.map(cell => `<td>${this.escapeExcelCell(cell)}</td>`).join('')}</tr>`
+        ).join('');
+
+        const html = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+                <head>
+                    <meta charset="UTF-8">
+                    <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Employees</x:Name><x:WorksheetOptions><x:Print><x:ValidPrinterInfo/></x:Print></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+                </head>
+                <body>
+                    <table border="1" cellspacing="0" cellpadding="5">
+                        ${tableRows}
+                    </table>
+                </body>
+            </html>`;
+
+        const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = 'dmw-rox-employees.xls';
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(url);
+
+        this.showNotification('Employee data exported to XLS.', 'success');
+    }
+
+    escapeExcelCell(value) {
+        if (value === null || value === undefined) {
+            return '';
+        }
+
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    openEmployeeForm(employee = null) {
+        const formModal = document.getElementById('employee-form-modal');
+        const formTitle = document.getElementById('employee-form-title');
+        if (!formModal || !formTitle) return;
+
+        this.resetEmployeeForm();
+        if (employee && employee._id) {
+            formTitle.textContent = 'Edit Employee';
+            this.populateEmployeeForm(employee);
+        } else {
+            formTitle.textContent = 'Add Employee';
+        }
+
+        formModal.classList.remove('hidden');
+        formModal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+    }
+
+    closeEmployeeForm() {
+        const formModal = document.getElementById('employee-form-modal');
+        if (!formModal) return;
+        formModal.classList.add('hidden');
+        formModal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+    }
+
+    resetEmployeeForm() {
+        const form = document.getElementById('employee-form');
+        if (!form) return;
+        form.reset();
+        document.getElementById('employee-id').value = '';
+    }
+
+    populateEmployeeForm(employee) {
+        document.getElementById('employee-id').value = employee._id || '';
+        document.getElementById('employee-firstName').value = employee.firstName || '';
+        document.getElementById('employee-lastName').value = employee.lastName || '';
+        document.getElementById('employee-middleName').value = employee.middleName || '';
+        document.getElementById('employee-nickname').value = employee.nickname || '';
+        document.getElementById('employee-email').value = employee.email || '';
+        document.getElementById('employee-mobile').value = employee.mobile || '';
+        document.getElementById('employee-position').value = employee.position || '';
+        document.getElementById('employee-division').value = employee.division || '';
+        document.getElementById('employee-employmentType').value = employee.employmentType || 'REGULAR';
+        document.getElementById('employee-birthdate').value = employee.birthdateString || '';
+        document.getElementById('employee-address').value = employee.address || '';
+    }
+
+    async submitEmployeeForm(e) {
+        e.preventDefault();
+        const id = document.getElementById('employee-id').value;
+        const payload = {
+            firstName: document.getElementById('employee-firstName').value.trim(),
+            lastName: document.getElementById('employee-lastName').value.trim(),
+            middleName: document.getElementById('employee-middleName').value.trim(),
+            nickname: document.getElementById('employee-nickname').value.trim(),
+            email: document.getElementById('employee-email').value.trim(),
+            mobile: document.getElementById('employee-mobile').value.trim(),
+            position: document.getElementById('employee-position').value.trim(),
+            division: document.getElementById('employee-division').value.trim(),
+            employmentType: document.getElementById('employee-employmentType').value,
+            birthdate: document.getElementById('employee-birthdate').value.trim(),
+            address: document.getElementById('employee-address').value.trim()
+        };
+
+        try {
+            let response;
+            if (id) {
+                response = await fetch(`${this.apiBaseUrl}/employees/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                response = await fetch(`${this.apiBaseUrl}/employees`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            }
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to save employee');
+            }
+
+            await this.fetchEmployeesFromApi();
+            this.renderDashboard();
+            this.renderCalendar();
+            this.renderDivisions();
+            this.closeEmployeeForm();
+        } catch (error) {
+            this.showNotification(error.message || 'Unable to save employee', 'error');
+        }
+    }
+
+    async deleteEmployeeById(employeeId) {
+        if (!employeeId) return;
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/employees/${employeeId}`, {
+                method: 'DELETE'
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to delete employee');
+            }
+            await this.fetchEmployeesFromApi();
+            this.renderDashboard();
+            this.renderCalendar();
+            this.renderDivisions();
+            this.closeEmployeeModal();
+            this.showNotification('Employee deleted successfully', 'success');
+        } catch (error) {
+            this.showNotification(error.message || 'Unable to delete employee', 'error');
+        }
     }
 
     // Event Listeners
@@ -580,10 +883,55 @@ Welfare Reintegration Services Division (RO X),REGULAR,,,,,,,,,,
         // Search
         document.getElementById('search-input').addEventListener('input', (e) => this.filterUpcoming(e.target.value));
 
+        // Add employee
+        const addEmployeeBtn = document.getElementById('add-employee-btn');
+        if (addEmployeeBtn) {
+            addEmployeeBtn.addEventListener('click', () => this.openEmployeeForm());
+        }
+
+        const exportXlsBtn = document.getElementById('export-xls-btn');
+        if (exportXlsBtn) {
+            exportXlsBtn.addEventListener('click', () => this.exportEmployeesToXLS());
+        }
+
+        // Form actions
+        const employeeForm = document.getElementById('employee-form');
+        if (employeeForm) {
+            employeeForm.addEventListener('submit', (e) => this.submitEmployeeForm(e));
+        }
+
+        const employeeFormCancel = document.getElementById('employee-form-cancel');
+        if (employeeFormCancel) {
+            employeeFormCancel.addEventListener('click', () => this.closeEmployeeForm());
+        }
+
+        document.getElementById('employee-form-close').addEventListener('click', () => this.closeEmployeeForm());
+        document.getElementById('confirm-modal-close').addEventListener('click', () => this.closeConfirmModal());
+        document.getElementById('confirm-cancel-btn').addEventListener('click', () => this.closeConfirmModal());
+        document.getElementById('confirm-delete-btn').addEventListener('click', () => {
+            if (this.pendingDeleteId) {
+                this.deleteEmployeeById(this.pendingDeleteId);
+                this.closeConfirmModal();
+            }
+        });
+
         // Division filters
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('filter-btn')) {
                 this.filterDivision(e.target.dataset.division);
+            }
+
+            if (e.target.classList.contains('edit-employee-btn')) {
+                const id = e.target.dataset.employeeId;
+                const employee = this.employees.find(emp => emp._id === id);
+                if (employee) {
+                    this.openEmployeeForm(employee);
+                }
+            }
+
+            if (e.target.classList.contains('delete-employee-btn')) {
+                const id = e.target.dataset.employeeId;
+                this.openConfirmModal(id);
             }
         });
 
@@ -600,10 +948,16 @@ Welfare Reintegration Services Division (RO X),REGULAR,,,,,,,,,,
         });
 
         document.getElementById('employee-modal-close').addEventListener('click', () => this.closeEmployeeModal());
-        document.querySelector('.employee-modal-backdrop').addEventListener('click', () => this.closeEmployeeModal());
+        document.querySelectorAll('.employee-modal-backdrop').forEach(backdrop => {
+            backdrop.addEventListener('click', () => {
+                this.closeEmployeeModal();
+                this.closeEmployeeForm();
+            });
+        });
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 this.closeEmployeeModal();
+                this.closeEmployeeForm();
             }
         });
     }

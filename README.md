@@ -27,6 +27,10 @@ A modern web application for managing employee information and tracking birthday
 - Filter divisions using quick-select buttons
 - Real-time filtering as you type
 
+📱 **Improved Mobile Layout**
+- Responsive cards, navigation, and modals for mobile screens
+- Mobile-friendly division filters and calendar view
+
 ## How to Use
 
 ### 1. **Setup**
@@ -59,12 +63,72 @@ The site has three main sections:
 
 ```
 DMW HR1/
-├── index.html              # Main HTML file (start here!)
-├── styles.css              # Styling and layout
-├── app.js                  # Application logic
-├── ROX INFO(Info) (1).csv  # Employee data (must be in same folder)
-└── README.md               # This file
+├── Frontend/
+│   ├── index.html              # Main HTML file for the browser UI
+│   ├── styles.css              # Styling and layout
+│   ├── app.js                  # Frontend application logic
+│   └── LOGO/                   # Logo and frontend assets
+├── Backend/
+│   ├── server.js               # Express backend API
+│   ├── import_csv.js           # CSV seed/import script for MongoDB
+│   ├── models/Employee.js      # Mongoose employee schema
+│   ├── .env.example            # Example environment variables
+│   ├── package.json            # Node backend metadata and scripts
+│   └── package-lock.json       # Lockfile for Node dependencies
+├── Data/
+│   └── ROX INFO(Info) (1).csv  # Employee data source for import
+└── README.md                   # This file
 ```
+
+## Backend Setup
+
+This project includes a Node/Express backend that supports MongoDB CRUD for employees.
+
+1. Install dependencies:
+```powershell
+npm install
+```
+
+2. Create a `.env` file from `.env.example` and set your MongoDB connection string.
+
+3. Use the Atlas application connection string, not the Atlas SQL path:
+   - In MongoDB Atlas go to **Clusters** → **Connect** → **Connect your application**
+   - Select **Node.js**
+   - Copy the `mongodb+srv://...` URI
+   - Replace `<password>` with your password
+   - Add the target database name and recommended options, for example:
+     `mongodb+srv://dmwrox:KHuMrxUeh1dkjBqt@cluster0.u4ijswb.mongodb.net/dmwrox?retryWrites=true&w=majority`
+
+4. Ensure Atlas Database Access has the user account created and Network Access has your IP address whitelisted.
+
+5. Basic local run command from the repo root:
+```powershell
+cd Backend
+npm install
+npm run dev
+```
+
+6. Open the app in your browser:
+```text
+http://localhost:5000
+```
+
+> Important: do not open `Frontend/index.html` directly from the file system. The app must be served by the backend at `http://localhost:5000`, otherwise the frontend cannot reach the API and will fall back to offline CSV mode.
+
+7. In a separate PowerShell window, verify that the API is reachable:
+```powershell
+Invoke-RestMethod -Uri 'http://localhost:5000/api/employees'
+```
+
+7. Optional: import the CSV file into MongoDB:
+```powershell
+cd "C:\Users\Alsonfred leyva\Downloads\DMW HR1"
+npm run import-csv
+```
+
+### Local fallback
+
+If Atlas authentication fails, the backend will automatically fall back to local MongoDB at `mongodb://127.0.0.1:27017/dmwrox`.
 
 ## Browser Compatibility
 
