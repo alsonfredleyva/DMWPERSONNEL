@@ -6,8 +6,26 @@ const cors = require('cors');
 const Employee = require('./models/Employee');
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = Number(process.env.PORT) || 5000;
 const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/dmwrox';
+const frontendDir = path.join(__dirname, '..', 'Frontend');
+
+function getAvailablePort(startingPort) {
+    return new Promise((resolve, reject) => {
+        const server = app.listen(startingPort, () => {
+            const address = server.address();
+            server.close(() => resolve(typeof address === 'object' ? address.port : startingPort));
+        });
+
+        server.on('error', (err) => {
+            if (err.code === 'EADDRINUSE') {
+                resolve(getAvailablePort(startingPort + 1));
+            } else {
+                reject(err);
+            }
+        });
+    });
+}
 
 const usingAtlas = mongoUri.startsWith('mongodb+srv://');
 console.log(`Using ${usingAtlas ? 'Atlas' : 'local'} MongoDB URI`);
@@ -15,7 +33,7 @@ console.log(`Using ${usingAtlas ? 'Atlas' : 'local'} MongoDB URI`);
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, '..', 'Frontend')));
+app.use(express.static(frontendDir));
 
 // MongoDB connection with local fallback
 async function connectWithFallback(uri) {
@@ -39,10 +57,10 @@ async function connectWithFallback(uri) {
                 console.log('MongoDB connected (local fallback)');
             } catch (err2) {
                 console.error('Fallback connection failed:', err2.message);
-                process.exit(1);
+                console.log('Continuing without database connection so the frontend can still be served.');
             }
         } else {
-            process.exit(1);
+            console.log('Continuing without database connection so the frontend can still be served.');
         }
     }
 }
@@ -127,19 +145,24 @@ app.delete('/api/employees/:id', async (req, res) => {
     }
 });
 
-// Serve SPA fallback for non-API routes
+// API routes stay under /api and can be deployed independently.
+app.get('/', (req, res) => {
+    res.sendFile(path.join(frontendDir, 'index.html'));
+});
+
 app.get('*', (req, res) => {
     if (req.path.startsWith('/api/')) {
         return res.status(404).json({ error: 'API endpoint not found' });
     }
-    res.sendFile(path.join(__dirname, '..', 'Frontend', 'index.html'));
+    res.sendFile(path.join(frontendDir, 'index.html'));
 });
 
 async function startServer() {
     await connectWithFallback(mongoUri);
 
-    app.listen(port, () => {
-        console.log(`Server running on port ${port}`);
+    const actualPort = await getAvailablePort(port);
+    app.listen(actualPort, () => {
+        console.log(`Server running on port ${actualPort}`);
     });
 }
 

@@ -1,7 +1,8 @@
 // Birthday Tracker Application
 class BirthdayTracker {
     constructor() {
-        this.apiBaseUrl = '/api';
+        this.apiCandidates = this.buildApiCandidates();
+        this.apiBaseUrl = this.apiCandidates[0] || '/api';
         this.employees = [];
         this.divisions = new Map();
         this.employeeDetails = new Map();
@@ -9,6 +10,18 @@ class BirthdayTracker {
         this.selectedDate = null;
         this.pendingDeleteId = null;
         this.init();
+    }
+
+    buildApiCandidates() {
+        const configuredBase = (window.DMW_CONFIG && window.DMW_CONFIG.apiBaseUrl) || '/api';
+        const candidates = [];
+
+        if (configuredBase) {
+            candidates.push(configuredBase.replace(/\/$/, ''));
+        }
+
+        candidates.push('/api', 'http://localhost:5000/api', 'http://localhost:5001/api', 'http://localhost:5002/api');
+        return [...new Set(candidates)];
     }
 
     async init() {
@@ -40,13 +53,25 @@ class BirthdayTracker {
     }
 
     async fetchEmployeesFromApi() {
-        const response = await fetch(`${this.apiBaseUrl}/employees`);
-        if (!response.ok) {
-            throw new Error(`Failed to load employees from API: ${response.status} ${response.statusText}`);
+        let lastError = null;
+
+        for (const baseUrl of this.apiCandidates) {
+            try {
+                const response = await fetch(`${baseUrl.replace(/\/$/, '')}/employees`);
+                if (!response.ok) {
+                    throw new Error(`Failed to load employees from API: ${response.status} ${response.statusText}`);
+                }
+
+                const employees = await response.json();
+                this.apiBaseUrl = baseUrl.replace(/\/$/, '');
+                this.processEmployeeData(employees);
+                return;
+            } catch (error) {
+                lastError = error;
+            }
         }
 
-        const employees = await response.json();
-        this.processEmployeeData(employees);
+        throw lastError || new Error('Failed to load employees from API');
     }
 
     setBackendStatus(isOnline, message) {
@@ -88,6 +113,95 @@ class BirthdayTracker {
         });
 
         this.sortEmployees();
+        this.populateDivisionOptions();
+    }
+
+    applyEmployeeToState(employeeData) {
+        const normalizedEmployee = this.normalizeEmployee(employeeData);
+        const existingIndex = this.employees.findIndex(emp => {
+            const existingId = emp._id ? String(emp._id) : '';
+            const incomingId = normalizedEmployee._id ? String(normalizedEmployee._id) : '';
+            return existingId && incomingId && existingId === incomingId;
+        });
+
+        const nextEmployees = [...this.employees];
+        if (existingIndex >= 0) {
+            nextEmployees[existingIndex] = normalizedEmployee;
+        } else {
+            nextEmployees.push(normalizedEmployee);
+        }
+
+        this.processEmployeeData(nextEmployees);
+        this.renderDashboard();
+        this.renderCalendar();
+        this.renderDivisions();
+    }
+
+    normalizeEmployee(employeeData) {
+        const birthdateValue = employeeData.birthdate || employeeData.birthDate || '';
+        const birthDate = birthdateValue ? new Date(birthdateValue) : null;
+        const displayBirthday = birthDate && !isNaN(birthDate.getTime())
+            ? this.formatBirthday(birthDate)
+            : 'No Date';
+
+        return {
+            ...employeeData,
+            birthDate,
+            displayBirthday,
+            birthdateString: birthdateValue ? String(birthdateValue) : ''
+        };
+    }
+
+    populateDivisionOptions(selectedValue = '') {
+        const select = document.getElementById('employee-division');
+        if (!select) return;
+
+        const currentValue = selectedValue || select.value || '';
+        const values = Array.from(this.divisions.keys())
+            .map(value => value && value.trim() ? value.trim() : '')
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b));
+
+        const uniqueValues = [...new Set(values)];
+        const options = ['Unassigned', ...uniqueValues.filter(value => value !== 'Unassigned')];
+        const finalValues = [...new Set(options)];
+
+        select.innerHTML = '';
+
+        const placeholderOption = document.createElement('option');
+        placeholderOption.value = '';
+        placeholderOption.textContent = 'Select division';
+        select.appendChild(placeholderOption);
+
+        finalValues.forEach(value => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = value;
+            select.appendChild(option);
+        });
+
+        if (currentValue) {
+            select.value = currentValue;
+        } else {
+            select.value = '';
+        }
+    }
+
+    toDateInputValue(dateString) {
+        if (!dateString) return '';
+
+        const trimmedValue = String(dateString).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmedValue)) {
+            return trimmedValue;
+        }
+
+        const parsedDate = this.parseBirthdate(trimmedValue);
+        if (!parsedDate) return '';
+
+        const year = parsedDate.getFullYear();
+        const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+        const day = String(parsedDate.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
 
     sortEmployees() {
@@ -494,23 +608,33 @@ Welfare Reintegration Services Division (RO X),REGULAR,,,,,,,,,,
     parseBirthdate(dateString) {
         if (!dateString || dateString.length === 0) return null;
         
+        const trimmedDateString = String(dateString).trim();
         let date = null;
         
-        // Try format: "April 23, 1969"
-        let dateRegex = /(\w+)\s+(\d{1,2}),\s+(\d{4})/;
-        let match = dateString.match(dateRegex);
+        // Try format: "YYYY-MM-DD"
+        let dateRegex = /(\d{4})-(\d{1,2})-(\d{1,2})/;
+        let match = trimmedDateString.match(dateRegex);
         
         if (match) {
-            const [, month, day, year] = match;
-            const monthIndex = new Date(`${month} 1, 2000`).getMonth();
-            date = new Date(parseInt(year), monthIndex, parseInt(day));
+            const [, year, month, day] = match;
+            date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
         } else {
-            // Try format: "10/30/1996" or "MM/DD/YYYY"
-            dateRegex = /(\d{1,2})\/(\d{1,2})\/(\d{4})/;
-            match = dateString.match(dateRegex);
+            // Try format: "April 23, 1969"
+            dateRegex = /(\w+)\s+(\d{1,2}),\s+(\d{4})/;
+            match = trimmedDateString.match(dateRegex);
+            
             if (match) {
                 const [, month, day, year] = match;
-                date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                const monthIndex = new Date(`${month} 1, 2000`).getMonth();
+                date = new Date(parseInt(year), monthIndex, parseInt(day));
+            } else {
+                // Try format: "10/30/1996" or "MM/DD/YYYY"
+                dateRegex = /(\d{1,2})\/(\d{1,2})\/(\d{4})/;
+                match = trimmedDateString.match(dateRegex);
+                if (match) {
+                    const [, month, day, year] = match;
+                    date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                }
             }
         }
         
@@ -783,9 +907,13 @@ Welfare Reintegration Services Division (RO X),REGULAR,,,,,,,,,,
         if (!form) return;
         form.reset();
         document.getElementById('employee-id').value = '';
+        this.populateDivisionOptions('');
+        document.getElementById('employee-birthdate').value = '';
     }
 
     populateEmployeeForm(employee) {
+        this.populateDivisionOptions(employee.division || '');
+
         document.getElementById('employee-id').value = employee._id || '';
         document.getElementById('employee-firstName').value = employee.firstName || '';
         document.getElementById('employee-lastName').value = employee.lastName || '';
@@ -796,7 +924,7 @@ Welfare Reintegration Services Division (RO X),REGULAR,,,,,,,,,,
         document.getElementById('employee-position').value = employee.position || '';
         document.getElementById('employee-division').value = employee.division || '';
         document.getElementById('employee-employmentType').value = employee.employmentType || 'REGULAR';
-        document.getElementById('employee-birthdate').value = employee.birthdateString || '';
+        document.getElementById('employee-birthdate').value = this.toDateInputValue(employee.birthdateString || employee.birthdate || '');
         document.getElementById('employee-address').value = employee.address || '';
     }
 
@@ -838,11 +966,16 @@ Welfare Reintegration Services Division (RO X),REGULAR,,,,,,,,,,
                 throw new Error(error.error || 'Failed to save employee');
             }
 
-            await this.fetchEmployeesFromApi();
-            this.renderDashboard();
-            this.renderCalendar();
-            this.renderDivisions();
+            const savedEmployee = await response.json();
+            this.applyEmployeeToState(savedEmployee);
             this.closeEmployeeForm();
+            this.showNotification(id ? 'Edited Successfully' : 'Added Successfully', 'success');
+
+            try {
+                await this.fetchEmployeesFromApi();
+            } catch (refreshError) {
+                console.warn('Background refresh failed, keeping the current view updated:', refreshError);
+            }
         } catch (error) {
             this.showNotification(error.message || 'Unable to save employee', 'error');
         }
@@ -863,7 +996,7 @@ Welfare Reintegration Services Division (RO X),REGULAR,,,,,,,,,,
             this.renderCalendar();
             this.renderDivisions();
             this.closeEmployeeModal();
-            this.showNotification('Employee deleted successfully', 'success');
+            this.showNotification('Deleted Successfully', 'success');
         } catch (error) {
             this.showNotification(error.message || 'Unable to delete employee', 'error');
         }
@@ -1358,7 +1491,28 @@ Welfare Reintegration Services Division (RO X),REGULAR,,,,,,,,,,
     }
 
     showNotification(message, type = 'info') {
-        console.log(`[${type.toUpperCase()}] ${message}`);
+        let container = document.getElementById('notification-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'notification-container';
+            container.className = 'notification-container';
+            document.body.appendChild(container);
+        }
+
+        const toast = document.createElement('div');
+        toast.className = `notification-toast ${type}`;
+        toast.setAttribute('role', 'status');
+        toast.innerHTML = `
+            <strong>${type === 'success' ? 'Success' : type === 'warning' ? 'Warning' : type === 'error' ? 'Error' : 'Notice'}</strong>
+            <span>${message}</span>
+        `;
+
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.classList.add('hide');
+            setTimeout(() => toast.remove(), 250);
+        }, 3000);
     }
 }
 

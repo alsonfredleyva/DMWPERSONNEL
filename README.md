@@ -2,6 +2,30 @@
 
 A modern web application for managing employee information and tracking birthdays from the ROX INFO CSV file. This portal helps DMW RO X organize and display personnel data across all divisions.
 
+## Project Settings
+- Root Directory: `./`
+- Node.js Version: `18+` (recommended)
+- Backend Entry Point: `Backend/server.js`
+- Frontend Folder: `Frontend/`
+- Data Folder: `Data/`
+- Deployment Model: Separate frontend and backend services
+
+## Deployment Model
+- Frontend: can be served as a static site from Netlify, Vercel, GitHub Pages, or any static host
+- Backend: runs as a Node/Express service on Render, Railway, Fly.io, Azure App Service, or any Node host
+- Vercel-specific routing has been removed so the frontend and backend are no longer tightly coupled
+
+### Separate deployment steps
+1. Deploy the contents of the Frontend folder as the static frontend.
+2. Deploy the Backend folder as the API service.
+3. Set the frontend API base URL to your backend URL before loading the app, for example:
+   ```html
+   <script>
+     window.__DMW_API_BASE_URL__ = 'https://your-backend-url/api';
+   </script>
+   ```
+4. If you keep the frontend and backend on the same host, the app will also work with the default `/api` path.
+
 ## Features
 
 ✨ **Dashboard**

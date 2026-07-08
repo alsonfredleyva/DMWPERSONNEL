@@ -144,7 +144,7 @@
 
         <!-- Footer -->
         <footer class="footer">
-            <p>&copy; 2024 DMW RO-X Personnel Portal | Employee Information System</p>
+            <p>&copy; 2026 DMW RO-X Personnel Portal | Employee Information System</p>
         </footer>
     </div>
 
@@ -172,7 +172,11 @@
                         <label>Email<input type="email" id="employee-email"></label>
                         <label>Mobile<input type="text" id="employee-mobile"></label>
                         <label>Position<input type="text" id="employee-position"></label>
-                        <label>Division<input type="text" id="employee-division"></label>
+                        <label>Division
+                            <select id="employee-division">
+                                <option value="">Select division</option>
+                            </select>
+                        </label>
                         <label>Employment Type
                             <select id="employee-employmentType">
                                 <option value="REGULAR">REGULAR</option>
@@ -181,7 +185,7 @@
                                 <option value="UNSPECIFIED">UNSPECIFIED</option>
                             </select>
                         </label>
-                        <label>Birthday<input type="text" id="employee-birthdate" placeholder="May 3, 2003"></label>
+                        <label>Birthday<input type="date" id="employee-birthdate"></label>
                         <label>Address<textarea id="employee-address" rows="2"></textarea></label>
                     </div>
                     <div class="form-actions">
@@ -210,6 +214,7 @@
         </div>
     </div>
 
+    <script src="config.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
