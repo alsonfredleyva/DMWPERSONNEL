@@ -1,30 +1,67 @@
 # DMW RO-X Personnel Portal
 
-A modern web application for managing employee information and tracking birthdays from the ROX INFO CSV file. This portal helps DMW RO X organize and display personnel data across all divisions.
+A modern web application for managing employee information and tracking birthdays for DMW RO X personnel.
 
-## Project Settings
-- Root Directory: `./`
-- Node.js Version: `18+` (recommended)
-- Backend Entry Point: `Backend/server.js`
-- Frontend Folder: `Frontend/`
-- Data Folder: `Data/`
-- Deployment Model: Separate frontend and backend services
+## Quick Start
 
-## Deployment Model
-- Frontend: can be served as a static site from Netlify, Vercel, GitHub Pages, or any static host
-- Backend: runs as a Node/Express service on Render, Railway, Fly.io, Azure App Service, or any Node host
-- Vercel-specific routing has been removed so the frontend and backend are no longer tightly coupled
+### 1. Install dependencies
+```powershell
+cd Backend
+npm install
+```
 
-### Separate deployment steps
-1. Deploy the contents of the Frontend folder as the static frontend.
-2. Deploy the Backend folder as the API service.
-3. Set the frontend API base URL to your backend URL before loading the app, for example:
-   ```html
-   <script>
-     window.__DMW_API_BASE_URL__ = 'https://your-backend-url/api';
-   </script>
-   ```
-4. If you keep the frontend and backend on the same host, the app will also work with the default `/api` path.
+### 2. Run locally
+```powershell
+cd Backend
+npm run dev
+```
+
+Open:
+```text
+http://localhost:5000
+```
+
+## Deployment Setup
+
+This project is designed to run with:
+- Frontend on Vercel
+- Backend on Render
+
+### Frontend (Vercel)
+Deploy the contents of the Frontend folder as a static site.
+
+### Backend (Render)
+Deploy the Backend folder as a Node.js web service.
+
+### Important URL change
+In the frontend, the API base URL must point to your Render backend.
+
+Use this format:
+```text
+https://your-render-service-name.onrender.com/api
+```
+
+Example:
+```text
+https://dmw-hr-backend.onrender.com/api
+```
+
+You can set it in the frontend by updating [Frontend/config.js](Frontend/config.js) or by adding this before the app loads:
+```html
+<script>
+  window.__DMW_API_BASE_URL__ = 'https://your-render-service-name.onrender.com/api';
+</script>
+```
+
+## Project Structure
+
+```text
+DMW HR1/
+├── Frontend/
+├── Backend/
+├── Data/
+└── README.md
+```
 
 ## Features
 
@@ -83,27 +120,6 @@ The site has three main sections:
 - Click specific division buttons to filter
 - View employees organized by division and employment type
 
-## File Structure
-
-```
-DMW HR1/
-├── Frontend/
-│   ├── index.html              # Main HTML file for the browser UI
-│   ├── styles.css              # Styling and layout
-│   ├── app.js                  # Frontend application logic
-│   └── LOGO/                   # Logo and frontend assets
-├── Backend/
-│   ├── server.js               # Express backend API
-│   ├── import_csv.js           # CSV seed/import script for MongoDB
-│   ├── models/Employee.js      # Mongoose employee schema
-│   ├── .env.example            # Example environment variables
-│   ├── package.json            # Node backend metadata and scripts
-│   └── package-lock.json       # Lockfile for Node dependencies
-├── Data/
-│   └── ROX INFO(Info) (1).csv  # Employee data source for import
-└── README.md                   # This file
-```
-
 ## Backend Setup
 
 This project includes a Node/Express backend that supports MongoDB CRUD for employees.
@@ -153,6 +169,17 @@ npm run import-csv
 ### Local fallback
 
 If Atlas authentication fails, the backend will automatically fall back to local MongoDB at `mongodb://127.0.0.1:27017/dmwrox`.
+
+## Render Environment Variables
+
+In Render, add these environment variables for the backend:
+
+```text
+PORT=10000
+MONGODB_URI=your_mongodb_connection_string
+```
+
+Render will assign the port automatically, but the app already uses `process.env.PORT` with a fallback.
 
 ## Browser Compatibility
 
@@ -239,4 +266,4 @@ If you encounter any issues:
 
 ---
 
-**Created for DMW Regional Office X** | Last Updated: 2024
+**Created for DMW Regional Office X** | Last Updated: 2026
