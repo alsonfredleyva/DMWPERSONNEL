@@ -15,3 +15,6 @@
     globalScope.DMW_CONFIG = globalScope.DMW_CONFIG || {};
     globalScope.DMW_CONFIG.apiBaseUrl = apiBaseUrl;
 })();
+<script>
+  window.__DMW_API_BASE_URL__ = 'https://dmwpersonnel.onrender.com/api';
+</script>
